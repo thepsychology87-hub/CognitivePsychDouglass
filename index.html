@@ -446,12 +446,20 @@
             cursor: pointer;
             transition: all 0.3s ease;
             border-left: 4px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .participant-item:hover {
             background: #f0f4ff;
             transform: translateX(5px);
             box-shadow: 0 3px 10px rgba(102, 126, 234, 0.2);
+        }
+
+        .participant-info {
+            flex: 1;
+            cursor: pointer;
         }
 
         .participant-name {
@@ -471,6 +479,26 @@
             color: #667eea;
             margin-top: 3px;
             font-weight: 500;
+        }
+
+        .participant-actions {
+            display: flex;
+            gap: 10px;
+            margin-left: 15px;
+        }
+
+        .btn-delete {
+            background: #f44336;
+            color: white;
+            padding: 8px 16px;
+            font-size: 13px;
+            min-width: auto;
+        }
+
+        .btn-delete:hover {
+            background: #d32f2f;
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(244, 67, 54, 0.4);
         }
 
         .btn-back {
@@ -512,6 +540,7 @@
             margin-bottom: 20px;
             border-bottom: 2px solid #e0e0e0;
             overflow-x: auto;
+            align-items: center;
         }
 
         .test-history-tab {
@@ -539,6 +568,113 @@
 
         .test-history-tab.active:hover {
             background: #5568d3;
+        }
+
+        .btn-delete-test {
+            background: #f44336;
+            color: white;
+            padding: 8px 16px;
+            font-size: 12px;
+            min-width: auto;
+            margin-left: auto;
+        }
+
+        .btn-delete-test:hover {
+            background: #d32f2f;
+            transform: translateY(-2px);
+            box-shadow: 0 3px 10px rgba(244, 67, 54, 0.4);
+        }
+
+        .test-tab-container {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .result-view-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 20px;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 400px;
+        }
+
+        .modal-content h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .modal-content p {
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 16px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .btn-confirm-delete {
+            background: #f44336;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-confirm-delete:hover {
+            background: #d32f2f;
+            transform: translateY(-2px);
+        }
+
+        .btn-cancel {
+            background: #999;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-cancel:hover {
+            background: #777;
+            transform: translateY(-2px);
         }
 
         @media (max-width: 768px) {
@@ -570,6 +706,31 @@
 
             .test-history-tabs {
                 flex-wrap: nowrap;
+            }
+
+            .participant-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .participant-actions {
+                margin-left: 0;
+                margin-top: 10px;
+                width: 100%;
+            }
+
+            .btn-delete {
+                flex: 1;
+            }
+
+            .result-view-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .btn-delete-test {
+                margin-left: 0;
+                width: 100%;
             }
         }
     </style>
@@ -708,6 +869,18 @@
         </div>
     </div>
 
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal-content">
+            <h3>⚠️ Confirm Delete</h3>
+            <p id="deleteMessage"></p>
+            <div class="modal-buttons">
+                <button class="btn-confirm-delete" onclick="confirmDelete()">Delete</button>
+                <button class="btn-cancel" onclick="cancelDelete()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Word lists
         const firstList = ['Garden', 'Giraffe', 'Pencil', 'Market', 'Bridge', 'Forest', 'Basket'];
@@ -722,6 +895,7 @@
         let userRole = '';
         let currentParticipantIndex = -1;
         let currentTestIndex = -1;
+        let deleteConfirmContext = null;
 
         function shuffle(array) {
             const shuffled = [...array];
@@ -773,6 +947,63 @@
             }
 
             saveParticipantsData(allData);
+        }
+
+        // Delete Functions
+        function showDeleteModal(message, callback) {
+            document.getElementById('deleteMessage').textContent = message;
+            deleteConfirmContext = callback;
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function confirmDelete() {
+            document.getElementById('deleteModal').classList.remove('active');
+            if (deleteConfirmContext) {
+                deleteConfirmContext();
+            }
+            deleteConfirmContext = null;
+        }
+
+        function cancelDelete() {
+            document.getElementById('deleteModal').classList.remove('active');
+            deleteConfirmContext = null;
+        }
+
+        function deleteParticipant(index) {
+            const allData = getAllParticipantsData();
+            const participantName = allData[index].name;
+            
+            showDeleteModal(
+                `Are you sure you want to delete all results for "${participantName}"? This action cannot be undone.`,
+                function() {
+                    allData.splice(index, 1);
+                    saveParticipantsData(allData);
+                    loadParticipantsList();
+                }
+            );
+        }
+
+        function deleteTest(testIndex) {
+            const allData = getAllParticipantsData();
+            const participant = allData[currentParticipantIndex];
+            const testDate = new Date(participant.tests[testIndex].timestamp).toLocaleString();
+            
+            showDeleteModal(
+                `Are you sure you want to delete this test result from "${participant.name}" (${testDate})? This action cannot be undone.`,
+                function() {
+                    participant.tests.splice(testIndex, 1);
+                    
+                    // If all tests deleted, remove participant
+                    if (participant.tests.length === 0) {
+                        allData.splice(currentParticipantIndex, 1);
+                        saveParticipantsData(allData);
+                        backToAdminDashboard();
+                    } else {
+                        saveParticipantsData(allData);
+                        displayParticipantTestHistory(participant);
+                    }
+                }
+            );
         }
 
         // Role Selection
@@ -836,10 +1067,15 @@
                     : 'N/A';
                 
                 html += `
-                    <div class="participant-item" onclick="viewParticipantResults(${index})">
-                        <div class="participant-name">${participant.name}</div>
-                        <div class="participant-test-count">Tests completed: ${testCount}</div>
-                        <div class="participant-timestamp">Last test: ${lastTest}</div>
+                    <div class="participant-item">
+                        <div class="participant-info" onclick="viewParticipantResults(${index})">
+                            <div class="participant-name">${participant.name}</div>
+                            <div class="participant-test-count">Tests completed: ${testCount}</div>
+                            <div class="participant-timestamp">Last test: ${lastTest}</div>
+                        </div>
+                        <div class="participant-actions">
+                            <button class="btn-delete" onclick="deleteParticipant(${index})">Delete All</button>
+                        </div>
                     </div>
                 `;
             });
@@ -868,7 +1104,12 @@
                 const testNumber = index + 1;
                 const testDate = new Date(test.timestamp).toLocaleDateString();
                 const isActive = index === 0 ? 'active' : '';
-                tabsHTML += `<button class="test-history-tab ${isActive}" onclick="selectTest(${index})" data-test-index="${index}">Test ${testNumber} - ${testDate}</button>`;
+                tabsHTML += `
+                    <div class="test-tab-container">
+                        <button class="test-history-tab ${isActive}" onclick="selectTest(${index})" data-test-index="${index}">Test ${testNumber} - ${testDate}</button>
+                        <button class="btn-delete-test" onclick="deleteTest(${index})" title="Delete this test">×</button>
+                    </div>
+                `;
             });
             tabsHTML += '</div>';
 

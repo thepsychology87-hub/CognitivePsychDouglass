@@ -466,6 +466,13 @@
             margin-top: 5px;
         }
 
+        .participant-test-count {
+            font-size: 12px;
+            color: #667eea;
+            margin-top: 3px;
+            font-weight: 500;
+        }
+
         .btn-back {
             background: #999;
             color: white;
@@ -499,6 +506,41 @@
             margin-bottom: 20px;
         }
 
+        .test-history-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            overflow-x: auto;
+        }
+
+        .test-history-tab {
+            padding: 12px 20px;
+            background: white;
+            border: 2px solid transparent;
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            font-weight: 500;
+            color: #666;
+        }
+
+        .test-history-tab.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .test-history-tab:hover {
+            background: #f0f4ff;
+            color: #333;
+        }
+
+        .test-history-tab.active:hover {
+            background: #5568d3;
+        }
+
         @media (max-width: 768px) {
             .results-columns {
                 grid-template-columns: 1fr;
@@ -524,6 +566,10 @@
 
             .btn-role {
                 min-width: 100%;
+            }
+
+            .test-history-tabs {
+                flex-wrap: nowrap;
             }
         }
     </style>
@@ -565,11 +611,10 @@
 
         <!-- Admin Result View -->
         <div class="content hidden" id="adminResultViewScreen">
-            <div style="width: 100%; text-align: left;">
+            <div style="width: 100%; text-align: left; margin-bottom: 20px;">
                 <button class="btn-back" onclick="backToAdminDashboard()">← Back to Participants</button>
             </div>
-            <div class="results-screen" id="adminResultsDisplay">
-            </div>
+            <div id="testHistoryContainer"></div>
         </div>
 
         <!-- Name Input Screen -->
@@ -675,6 +720,8 @@
         let wordDisplayTimeout = null;
         let userName = '';
         let userRole = '';
+        let currentParticipantIndex = -1;
+        let currentTestIndex = -1;
 
         function shuffle(array) {
             const shuffled = [...array];
@@ -690,6 +737,42 @@
                 screen.classList.add('hidden');
             });
             document.getElementById(screenId).classList.remove('hidden');
+        }
+
+        // Storage Management
+        function getAllParticipantsData() {
+            return JSON.parse(localStorage.getItem('allParticipantsData') || '[]');
+        }
+
+        function saveParticipantsData(data) {
+            localStorage.setItem('allParticipantsData', JSON.stringify(data));
+        }
+
+        function addTestResult(name, responses) {
+            const allData = getAllParticipantsData();
+            const existingParticipant = allData.find(p => p.name.toLowerCase() === name.toLowerCase());
+
+            const testResult = {
+                timestamp: new Date().toISOString(),
+                responses: responses
+            };
+
+            if (existingParticipant) {
+                if (!existingParticipant.tests) {
+                    existingParticipant.tests = [];
+                }
+                existingParticipant.tests.push(testResult);
+                existingParticipant.lastUpdated = new Date().toISOString();
+            } else {
+                allData.push({
+                    name: name,
+                    tests: [testResult],
+                    firstAdded: new Date().toISOString(),
+                    lastUpdated: new Date().toISOString()
+                });
+            }
+
+            saveParticipantsData(allData);
         }
 
         // Role Selection
@@ -727,6 +810,8 @@
 
         function backToAdminDashboard() {
             showScreen('adminDashboardScreen');
+            currentParticipantIndex = -1;
+            currentTestIndex = -1;
         }
 
         function showAdminDashboard() {
@@ -735,20 +820,26 @@
         }
 
         function loadParticipantsList() {
-            const participants = JSON.parse(localStorage.getItem('participants') || '[]');
+            const allData = getAllParticipantsData();
             const participantsList = document.getElementById('participantsList');
             
-            if (participants.length === 0) {
+            if (allData.length === 0) {
                 participantsList.innerHTML = '<p style="text-align: center; color: #999;">No participants yet</p>';
                 return;
             }
 
             let html = '';
-            participants.forEach((participant, index) => {
+            allData.forEach((participant, index) => {
+                const testCount = participant.tests ? participant.tests.length : 0;
+                const lastTest = participant.tests && participant.tests.length > 0 
+                    ? new Date(participant.tests[participant.tests.length - 1].timestamp).toLocaleString()
+                    : 'N/A';
+                
                 html += `
                     <div class="participant-item" onclick="viewParticipantResults(${index})">
                         <div class="participant-name">${participant.name}</div>
-                        <div class="participant-timestamp">${new Date(participant.timestamp).toLocaleString()}</div>
+                        <div class="participant-test-count">Tests completed: ${testCount}</div>
+                        <div class="participant-timestamp">Last test: ${lastTest}</div>
                     </div>
                 `;
             });
@@ -756,18 +847,67 @@
         }
 
         function viewParticipantResults(index) {
-            const participants = JSON.parse(localStorage.getItem('participants') || '[]');
-            const participant = participants[index];
+            const allData = getAllParticipantsData();
+            const participant = allData[index];
+            currentParticipantIndex = index;
             
             showScreen('adminResultViewScreen');
-            displayAdminResults(participant);
+            displayParticipantTestHistory(participant);
         }
 
-        function displayAdminResults(participant) {
-            const resultsDisplay = document.getElementById('adminResultsDisplay');
+        function displayParticipantTestHistory(participant) {
+            const container = document.getElementById('testHistoryContainer');
             
-            let html = `<h2>Test Results - ${participant.name}</h2>`;
-            html += `<p style="text-align: center; color: #999; margin-bottom: 20px;">Completed: ${new Date(participant.timestamp).toLocaleString()}</p>`;
+            if (!participant.tests || participant.tests.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999;">No tests completed yet</p>';
+                return;
+            }
+
+            let tabsHTML = '<div class="test-history-tabs">';
+            participant.tests.forEach((test, index) => {
+                const testNumber = index + 1;
+                const testDate = new Date(test.timestamp).toLocaleDateString();
+                const isActive = index === 0 ? 'active' : '';
+                tabsHTML += `<button class="test-history-tab ${isActive}" onclick="selectTest(${index})" data-test-index="${index}">Test ${testNumber} - ${testDate}</button>`;
+            });
+            tabsHTML += '</div>';
+
+            let resultsHTML = '';
+            participant.tests.forEach((test, index) => {
+                const displayClass = index === 0 ? '' : 'hidden';
+                resultsHTML += `<div id="test-results-${index}" class="results-screen ${displayClass}">`;
+                resultsHTML += displayTestResults(test, participant.name);
+                resultsHTML += '</div>';
+            });
+
+            container.innerHTML = tabsHTML + resultsHTML;
+            currentTestIndex = 0;
+        }
+
+        function selectTest(testIndex) {
+            // Hide all test results
+            document.querySelectorAll('[id^="test-results-"]').forEach(el => {
+                el.classList.add('hidden');
+            });
+
+            // Show selected test
+            document.getElementById(`test-results-${testIndex}`).classList.remove('hidden');
+
+            // Update tab active state
+            document.querySelectorAll('.test-history-tab').forEach((tab, idx) => {
+                if (idx === testIndex) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+
+            currentTestIndex = testIndex;
+        }
+
+        function displayTestResults(test, participantName) {
+            let html = `<h2>Test Results - ${participantName}</h2>`;
+            html += `<p style="text-align: center; color: #999; margin-bottom: 20px;">Completed: ${new Date(test.timestamp).toLocaleString()}</p>`;
             
             html += `
                 <div class="results-columns">
@@ -785,12 +925,14 @@
                     <div class="score-number" id="correctScore"></div>
                 </div>
             `;
-            
-            resultsDisplay.innerHTML = html;
+
+            // Create temporary container
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
 
             // Populate results
-            const oldWordResponses = participant.responses.filter(r => r.isOldWord);
-            const newWordResponses = participant.responses.filter(r => !r.isOldWord);
+            const oldWordResponses = test.responses.filter(r => r.isOldWord);
+            const newWordResponses = test.responses.filter(r => !r.isOldWord);
             const correctOldWords = oldWordResponses.filter(r => r.isCorrect);
 
             let oldWordsHTML = '';
@@ -807,7 +949,6 @@
                     </div>
                 `;
             });
-            document.getElementById('oldWordsList').innerHTML = oldWordsHTML || '<p style="text-align: center; color: #999;">No words to display</p>';
 
             let newWordsHTML = '';
             newWordResponses.forEach(response => {
@@ -823,9 +964,15 @@
                     </div>
                 `;
             });
-            document.getElementById('newWordsList').innerHTML = newWordsHTML || '<p style="text-align: center; color: #999;">No words to display</p>';
 
-            document.getElementById('correctScore').textContent = `${correctOldWords.length} out of ${oldWordResponses.length}`;
+            // Replace content after appending
+            setTimeout(() => {
+                document.getElementById('oldWordsList').innerHTML = oldWordsHTML || '<p style="text-align: center; color: #999;">No words to display</p>';
+                document.getElementById('newWordsList').innerHTML = newWordsHTML || '<p style="text-align: center; color: #999;">No words to display</p>';
+                document.getElementById('correctScore').textContent = `${correctOldWords.length} out of ${oldWordResponses.length}`;
+            }, 0);
+
+            return html;
         }
 
         // Participant flow
@@ -990,14 +1137,8 @@
         }
 
         function saveAndCompleteTest() {
-            // Save participant results to localStorage
-            const participants = JSON.parse(localStorage.getItem('participants') || '[]');
-            participants.push({
-                name: userName,
-                timestamp: new Date().toISOString(),
-                responses: responses
-            });
-            localStorage.setItem('participants', JSON.stringify(participants));
+            // Save test result permanently
+            addTestResult(userName, responses);
             
             // Show completion screen
             showScreen('completionScreen');

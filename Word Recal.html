@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recognition Memory Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+
+        .content {
+            text-align: center;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .instruction-screen {
+            line-height: 1.8;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .instruction-screen p {
+            margin-bottom: 15px;
+        }
+
+        .instruction-screen ul {
+            text-align: left;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .instruction-screen li {
+            margin-bottom: 10px;
+            line-height: 1.6;
+        }
+
+        .name-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .name-input-group p {
+            font-size: 18px;
+            color: #333;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .name-input-group input {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            min-width: 300px;
+            text-align: center;
+        }
+
+        .name-input-group input:focus {
+            outline: none;
+            border-color: #5568d3;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .word-display {
+            font-size: 64px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 40px 0;
+            letter-spacing: 2px;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .countdown {
+            font-size: 48px;
+            color: #667eea;
+            font-weight: bold;
+            margin: 40px 0;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 40px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 15px 40px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            min-width: 150px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #999;
+            color: white;
+            padding: 10px 20px;
+            font-size: 14px;
+            min-width: auto;
+        }
+
+        .btn-secondary:hover {
+            background: #777;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(153, 153, 153, 0.4);
+        }
+
+        .btn-was-in {
+            background: #4caf50;
+            color: white;
+            min-width: 280px;
+            font-size: 16px;
+        }
+
+        .btn-was-in:hover {
+            background: #388e3c;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-was-not-in {
+            background: #f44336;
+            color: white;
+            min-width: 280px;
+            font-size: 16px;
+        }
+
+        .btn-was-not-in:hover {
+            background: #d32f2f;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.4);
+        }
+
+        .results-screen {
+            text-align: left;
+            background: #f0f4ff;
+            padding: 30px;
+            border-radius: 10px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .results-screen h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 24px;
+        }
+
+        .results-columns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .results-column {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .results-column h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .old-column h3 {
+            color: #4caf50;
+        }
+
+        .new-column h3 {
+            color: #f44336;
+        }
+
+        .result-item {
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 15px;
+            color: #333;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-word {
+            font-weight: 600;
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .result-correct {
+            color: #4caf50;
+            font-weight: 600;
+        }
+
+        .result-incorrect {
+            color: #f44336;
+            font-weight: 600;
+        }
+
+        .result-details {
+            font-size: 13px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .score-summary {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: center;
+            font-size: 18px;
+        }
+
+        .score-number {
+            font-size: 32px;
+            color: #667eea;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .timer-display {
+            font-size: 36px;
+            color: #667eea;
+            font-weight: bold;
+            margin: 30px 0;
+        }
+
+        .math-problem-screen {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .math-problem {
+            font-size: 48px;
+            color: #667eea;
+            font-weight: bold;
+            background: #f0f4ff;
+            padding: 40px;
+            border-radius: 10px;
+            min-width: 250px;
+        }
+
+        .math-instruction {
+            font-size: 18px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .math-input-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .math-input {
+            font-size: 18px;
+            padding: 12px 20px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            min-width: 150px;
+            text-align: center;
+        }
+
+        .math-input:focus {
+            outline: none;
+            border-color: #5568d3;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn-submit {
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            font-size: 16px;
+        }
+
+        .btn-submit:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .error-message {
+            color: #f44336;
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 15px;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .first-list-header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+
+        .first-list-header p {
+            font-size: 18px;
+            color: #666;
+        }
+
+        .question-box {
+            font-size: 16px;
+            color: #333;
+            font-weight: 500;
+            margin-bottom: 20px;
+            background: #f0f4ff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            display: inline-block;
+        }
+
+        .role-selection-group {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .role-selection-group p {
+            font-size: 20px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .btn-role {
+            background: #667eea;
+            color: white;
+            padding: 20px 50px;
+            font-size: 18px;
+            min-width: 250px;
+        }
+
+        .btn-role:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .admin-list {
+            background: #f0f4ff;
+            padding: 30px;
+            border-radius: 10px;
+            max-height: 600px;
+            overflow-y: auto;
+            text-align: left;
+        }
+
+        .admin-list h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 25px;
+            font-size: 24px;
+        }
+
+        .participant-item {
+            background: white;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 4px solid #667eea;
+        }
+
+        .participant-item:hover {
+            background: #f0f4ff;
+            transform: translateX(5px);
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.2);
+        }
+
+        .participant-name {
+            font-size: 16px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .participant-timestamp {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .btn-back {
+            background: #999;
+            color: white;
+            padding: 12px 30px;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+
+        .btn-back:hover {
+            background: #777;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(153, 153, 153, 0.4);
+        }
+
+        .completion-screen {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .completion-screen h2 {
+            color: #4caf50;
+            font-size: 28px;
+        }
+
+        .completion-screen p {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .results-columns {
+                grid-template-columns: 1fr;
+            }
+
+            .first-list-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn-was-in,
+            .btn-was-not-in {
+                min-width: 100%;
+            }
+
+            .name-input-group input {
+                min-width: 100%;
+            }
+
+            .btn-role {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 Word recall attention test</h1>
+
+        <!-- Role Selection Screen -->
+        <div class="content" id="roleScreen">
+            <div class="role-selection-group">
+                <p>Please select your role:</p>
+                <button class="btn-role" onclick="selectParticipant()">Participant</button>
+                <button class="btn-role" onclick="selectAdmin()">Admin</button>
+            </div>
+        </div>
+
+        <!-- Admin Password Screen -->
+        <div class="content hidden" id="adminPasswordScreen">
+            <div class="name-input-group">
+                <p>Enter Admin Password:</p>
+                <input type="password" id="adminPassword" placeholder="Enter password" autocomplete="off">
+                <div class="button-group">
+                    <button class="btn-primary" onclick="submitAdminPassword()">Submit</button>
+                    <button class="btn-secondary" onclick="backToRole()">Back</button>
+                </div>
+                <div id="passwordErrorMessage"></div>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard -->
+        <div class="content hidden" id="adminDashboardScreen">
+            <div class="admin-list">
+                <h2>Participant Results</h2>
+                <div id="participantsList"></div>
+            </div>
+            <button class="btn-back" onclick="backToRole()">Logout</button>
+        </div>
+
+        <!-- Admin Result View -->
+        <div class="content hidden" id="adminResultViewScreen">
+            <div style="width: 100%; text-align: left;">
+                <button class="btn-back" onclick="backToAdminDashboard()">← Back to Participants</button>
+            </div>
+            <div class="results-screen" id="adminResultsDisplay">
+            </div>
+        </div>
+
+        <!-- Name Input Screen -->
+        <div class="content hidden" id="nameScreen">
+            <div class="name-input-group">
+                <p>Please enter your name to begin:</p>
+                <input type="text" id="nameInput" placeholder="Enter your name" autocomplete="off">
+                <div class="button-group">
+                    <button class="btn-primary" onclick="submitName()">Continue</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Welcome Screen -->
+        <div class="content hidden" id="welcomeScreen">
+            <div class="instruction-screen">
+                <p><strong>Welcome to the test!</strong></p>
+                <ul>
+                    <li>You will be shown a series of words on the screen.</li>
+                    <li>After reading all of the words, you will be given 10 seconds, and then you will be shown a second list of words.</li>
+                </ul>
+                <p style="margin-top: 30px;"><strong>During the second list:</strong></p>
+                <p>Press the <strong>"This word was in the first list"</strong> button if the word appeared in the first list.</p>
+                <p>Press the <strong>"This word was not in the first list"</strong> button if the word did not appear in the first list.</p>
+                <div class="button-group">
+                    <button class="btn-primary" onclick="startFirstList()">Begin Test</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- First List Display -->
+        <div class="content hidden" id="firstListScreen">
+            <div class="first-list-header">
+                <p style="font-size: 18px; color: #666;">First List - Memorize These Words</p>
+            </div>
+            <div class="word-display" id="wordDisplay"></div>
+            <div style="position: absolute; bottom: 40px; right: 40px;">
+                <button class="btn-secondary" onclick="skipFirstList()">Skip</button>
+            </div>
+        </div>
+
+        <!-- Math Problem Screen -->
+        <div class="content hidden" id="mathProblemScreen">
+            <div class="math-problem-screen">
+                <div class="math-problem" id="mathProblem">5 + (5 × 2) =</div>
+                <p class="math-instruction">Please enter the answer to continue</p>
+                <div class="math-input-group">
+                    <input type="number" class="math-input" id="mathAnswer" placeholder="Enter answer">
+                    <button class="btn-submit" onclick="submitMathAnswer()">Submit</button>
+                </div>
+                <div id="mathErrorMessage"></div>
+            </div>
+        </div>
+
+        <!-- Break Screen with Countdown -->
+        <div class="content hidden" id="breakScreen">
+            <p style="font-size: 18px; color: #666; margin-bottom: 20px;">Get ready for the second list...</p>
+            <div class="timer-display" id="timerDisplay">10</div>
+        </div>
+
+        <!-- Second List Instructions -->
+        <div class="content hidden" id="secondListInstructionScreen">
+            <div class="instruction-screen">
+                <p><strong>Time for the second list of words.</strong></p>
+                <p>Press the <strong>"This word was in the first list"</strong> button if the word appeared in the first list.</p>
+                <p>Press the <strong>"This word was not in the first list"</strong> button if the word did not appear in the first list.</p>
+                <div class="button-group">
+                    <button class="btn-primary" onclick="startSecondList()">Continue</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Second List Test -->
+        <div class="content hidden" id="secondListScreen">
+            <p style="font-size: 18px; color: #666; margin-bottom: 20px;" id="wordProgress"></p>
+            <div class="question-box">Was this word in the first list?</div>
+            <div class="word-display" id="testWordDisplay"></div>
+            <div class="button-group">
+                <button class="btn-was-in" onclick="respondWasIn()">This word was in the first list</button>
+                <button class="btn-was-not-in" onclick="respondNotIn()">This word was not in the first list</button>
+            </div>
+        </div>
+
+        <!-- Completion Screen -->
+        <div class="content hidden" id="completionScreen">
+            <div class="completion-screen">
+                <h2>✓ Test Complete</h2>
+                <p>Thank you for completing the test! Your results have been saved.</p>
+                <button class="btn-primary" onclick="resetToRole()">Return to Home</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Word lists
+        const firstList = ['Garden', 'Giraffe', 'Pencil', 'Market', 'Bridge', 'Forest', 'Basket'];
+        const secondList = ['Giraffe', 'Garden', 'Pencil', 'Market', 'Bridge', 'Forest', 'Basket', 'Orange', 'Button', 'Rocket', 'Hammer', 'Turtle', 'Carpet', 'Lantern'];
+        
+        let shuffledFirstList = [];
+        let shuffledSecondList = [];
+        let currentWordIndex = 0;
+        let responses = [];
+        let wordDisplayTimeout = null;
+        let userName = '';
+        let userRole = '';
+
+        function shuffle(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.content').forEach(screen => {
+                screen.classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+        }
+
+        // Role Selection
+        function selectParticipant() {
+            userRole = 'participant';
+            showScreen('nameScreen');
+            document.getElementById('nameInput').focus();
+        }
+
+        function selectAdmin() {
+            userRole = 'admin';
+            showScreen('adminPasswordScreen');
+            document.getElementById('adminPassword').focus();
+        }
+
+        function submitAdminPassword() {
+            const password = document.getElementById('adminPassword').value;
+            const errorMessageDiv = document.getElementById('passwordErrorMessage');
+
+            if (password === 'cognitive') {
+                errorMessageDiv.textContent = '';
+                showAdminDashboard();
+            } else {
+                errorMessageDiv.innerHTML = '<div class="error-message" style="margin-top: 20px;">Incorrect password</div>';
+                document.getElementById('adminPassword').value = '';
+                document.getElementById('adminPassword').focus();
+            }
+        }
+
+        function backToRole() {
+            showScreen('roleScreen');
+            document.getElementById('adminPassword').value = '';
+            document.getElementById('passwordErrorMessage').textContent = '';
+        }
+
+        function backToAdminDashboard() {
+            showScreen('adminDashboardScreen');
+        }
+
+        function showAdminDashboard() {
+            showScreen('adminDashboardScreen');
+            loadParticipantsList();
+        }
+
+        function loadParticipantsList() {
+            const participants = JSON.parse(localStorage.getItem('participants') || '[]');
+            const participantsList = document.getElementById('participantsList');
+            
+            if (participants.length === 0) {
+                participantsList.innerHTML = '<p style="text-align: center; color: #999;">No participants yet</p>';
+                return;
+            }
+
+            let html = '';
+            participants.forEach((participant, index) => {
+                html += `
+                    <div class="participant-item" onclick="viewParticipantResults(${index})">
+                        <div class="participant-name">${participant.name}</div>
+                        <div class="participant-timestamp">${new Date(participant.timestamp).toLocaleString()}</div>
+                    </div>
+                `;
+            });
+            participantsList.innerHTML = html;
+        }
+
+        function viewParticipantResults(index) {
+            const participants = JSON.parse(localStorage.getItem('participants') || '[]');
+            const participant = participants[index];
+            
+            showScreen('adminResultViewScreen');
+            displayAdminResults(participant);
+        }
+
+        function displayAdminResults(participant) {
+            const resultsDisplay = document.getElementById('adminResultsDisplay');
+            
+            let html = `<h2>Test Results - ${participant.name}</h2>`;
+            html += `<p style="text-align: center; color: #999; margin-bottom: 20px;">Completed: ${new Date(participant.timestamp).toLocaleString()}</p>`;
+            
+            html += `
+                <div class="results-columns">
+                    <div class="results-column old-column">
+                        <h3>🟢 Words From First List</h3>
+                        <div id="oldWordsList"></div>
+                    </div>
+                    <div class="results-column new-column">
+                        <h3>🔴 New Words</h3>
+                        <div id="newWordsList"></div>
+                    </div>
+                </div>
+                <div class="score-summary">
+                    <p>Correct Old Words Identified:</p>
+                    <div class="score-number" id="correctScore"></div>
+                </div>
+            `;
+            
+            resultsDisplay.innerHTML = html;
+
+            // Populate results
+            const oldWordResponses = participant.responses.filter(r => r.isOldWord);
+            const newWordResponses = participant.responses.filter(r => !r.isOldWord);
+            const correctOldWords = oldWordResponses.filter(r => r.isCorrect);
+
+            let oldWordsHTML = '';
+            oldWordResponses.forEach(response => {
+                const statusClass = response.isCorrect ? 'result-correct' : 'result-incorrect';
+                const status = response.isCorrect ? '✓ Correct' : '✗ Incorrect';
+                
+                oldWordsHTML += `
+                    <div class="result-item">
+                        <span class="result-word">${response.word}</span>
+                        <div class="result-details">
+                            Your answer: <strong>${response.response}</strong> - <span class="${statusClass}">${status}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('oldWordsList').innerHTML = oldWordsHTML || '<p style="text-align: center; color: #999;">No words to display</p>';
+
+            let newWordsHTML = '';
+            newWordResponses.forEach(response => {
+                const statusClass = response.isCorrect ? 'result-correct' : 'result-incorrect';
+                const status = response.isCorrect ? '✓ Correct' : '✗ Incorrect';
+                
+                newWordsHTML += `
+                    <div class="result-item">
+                        <span class="result-word">${response.word}</span>
+                        <div class="result-details">
+                            Your answer: <strong>${response.response}</strong> - <span class="${statusClass}">${status}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('newWordsList').innerHTML = newWordsHTML || '<p style="text-align: center; color: #999;">No words to display</p>';
+
+            document.getElementById('correctScore').textContent = `${correctOldWords.length} out of ${oldWordResponses.length}`;
+        }
+
+        // Participant flow
+        function submitName() {
+            const nameInput = document.getElementById('nameInput').value.trim();
+            if (nameInput === '') {
+                alert('Please enter your name');
+                return;
+            }
+            userName = nameInput;
+            showScreen('welcomeScreen');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('nameInput').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    submitName();
+                }
+            });
+
+            document.getElementById('adminPassword').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    submitAdminPassword();
+                }
+            });
+
+            document.getElementById('mathAnswer').addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    submitMathAnswer();
+                }
+            });
+        });
+
+        function startFirstList() {
+            shuffledFirstList = shuffle(firstList);
+            showScreen('firstListScreen');
+            displayFirstListWords();
+        }
+
+        function displayFirstListWords() {
+            let index = 0;
+            const wordDisplay = document.getElementById('wordDisplay');
+
+            function showNextWord() {
+                if (index < shuffledFirstList.length) {
+                    wordDisplay.textContent = shuffledFirstList[index];
+                    index++;
+                    wordDisplayTimeout = setTimeout(showNextWord, 3000);
+                } else {
+                    showMathProblem();
+                }
+            }
+
+            showNextWord();
+        }
+
+        function skipFirstList() {
+            if (wordDisplayTimeout) {
+                clearTimeout(wordDisplayTimeout);
+            }
+            showMathProblem();
+        }
+
+        function showMathProblem() {
+            showScreen('mathProblemScreen');
+            document.getElementById('mathAnswer').value = '';
+            document.getElementById('mathErrorMessage').textContent = '';
+            document.getElementById('mathAnswer').focus();
+        }
+
+        function submitMathAnswer() {
+            const userAnswer = parseInt(document.getElementById('mathAnswer').value);
+            const correctAnswer = 15;
+            const errorMessageDiv = document.getElementById('mathErrorMessage');
+
+            if (userAnswer === correctAnswer) {
+                errorMessageDiv.textContent = '';
+                startBreak();
+            } else {
+                errorMessageDiv.innerHTML = '<div class="error-message">Wrong answer, please try again</div>';
+                document.getElementById('mathAnswer').value = '';
+                document.getElementById('mathAnswer').focus();
+            }
+        }
+
+        function startBreak() {
+            showScreen('breakScreen');
+            let timeRemaining = 10;
+            const timerDisplay = document.getElementById('timerDisplay');
+
+            const countdown = setInterval(() => {
+                timerDisplay.textContent = timeRemaining;
+                timeRemaining--;
+
+                if (timeRemaining < 0) {
+                    clearInterval(countdown);
+                    showSecondListInstructions();
+                }
+            }, 1000);
+        }
+
+        function showSecondListInstructions() {
+            showScreen('secondListInstructionScreen');
+        }
+
+        function startSecondList() {
+            shuffledSecondList = shuffle(secondList);
+            currentWordIndex = 0;
+            responses = [];
+            showScreen('secondListScreen');
+            displaySecondListWord();
+        }
+
+        function displaySecondListWord() {
+            const testWordDisplay = document.getElementById('testWordDisplay');
+            const wordProgress = document.getElementById('wordProgress');
+            
+            if (currentWordIndex < shuffledSecondList.length) {
+                testWordDisplay.textContent = shuffledSecondList[currentWordIndex];
+                wordProgress.textContent = `Word ${currentWordIndex + 1} of ${shuffledSecondList.length}`;
+            }
+        }
+
+        function respondWasIn() {
+            const currentWord = shuffledSecondList[currentWordIndex];
+            const isCorrect = firstList.includes(currentWord);
+            
+            responses.push({
+                word: currentWord,
+                response: 'This word was in the first list',
+                isCorrect: isCorrect,
+                isOldWord: firstList.includes(currentWord)
+            });
+
+            currentWordIndex++;
+            
+            if (currentWordIndex < shuffledSecondList.length) {
+                displaySecondListWord();
+            } else {
+                saveAndCompleteTest();
+            }
+        }
+
+        function respondNotIn() {
+            const currentWord = shuffledSecondList[currentWordIndex];
+            const isCorrect = !firstList.includes(currentWord);
+            
+            responses.push({
+                word: currentWord,
+                response: 'This word was not in the first list',
+                isCorrect: isCorrect,
+                isOldWord: firstList.includes(currentWord)
+            });
+
+            currentWordIndex++;
+            
+            if (currentWordIndex < shuffledSecondList.length) {
+                displaySecondListWord();
+            } else {
+                saveAndCompleteTest();
+            }
+        }
+
+        function saveAndCompleteTest() {
+            // Save participant results to localStorage
+            const participants = JSON.parse(localStorage.getItem('participants') || '[]');
+            participants.push({
+                name: userName,
+                timestamp: new Date().toISOString(),
+                responses: responses
+            });
+            localStorage.setItem('participants', JSON.stringify(participants));
+            
+            // Show completion screen
+            showScreen('completionScreen');
+        }
+
+        function resetToRole() {
+            showScreen('roleScreen');
+            userName = '';
+            userRole = '';
+            responses = [];
+            currentWordIndex = 0;
+            document.getElementById('nameInput').value = '';
+        }
+    </script>
+</body>
+</html>

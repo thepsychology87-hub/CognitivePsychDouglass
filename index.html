@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Recognition Memory Test</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js"></script>
     <style>
         * {
             margin: 0;
@@ -677,6 +679,13 @@
             transform: translateY(-2px);
         }
 
+        .loading-message {
+            color: #667eea;
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+
         @media (max-width: 768px) {
             .results-columns {
                 grid-template-columns: 1fr;
@@ -864,6 +873,7 @@
             <div class="completion-screen">
                 <h2>✓ Test Complete</h2>
                 <p>Thank you for completing the test! Your results have been saved.</p>
+                <div id="loadingMessage" class="loading-message"></div>
                 <button class="btn-primary" onclick="resetToRole()">Return to Home</button>
             </div>
         </div>
@@ -882,6 +892,34 @@
     </div>
 
     <script>
+        // ============ FIREBASE CONFIGURATION ============
+        // Replace with your Firebase config from Firebase Console
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            databaseURL: "YOUR_DATABASE_URL",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        let db = null;
+        let firebaseReady = false;
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.database();
+            firebaseReady = true;
+        } catch (error) {
+            console.warn('Firebase not configured. Using localStorage fallback:', error);
+            firebaseReady = false;
+        }
+
+        // Admin password (change this to your desired password)
+        const ADMIN_PASSWORD = "admin123";
+
         // Word lists
         const firstList = ['Garden', 'Giraffe', 'Pencil', 'Market', 'Bridge', 'Forest', 'Basket'];
         const secondList = ['Giraffe', 'Garden', 'Pencil', 'Market', 'Bridge', 'Forest', 'Basket', 'Orange', 'Button', 'Rocket', 'Hammer', 'Turtle', 'Carpet', 'Lantern'];
@@ -897,6 +935,7 @@
         let currentTestIndex = -1;
         let deleteConfirmContext = null;
 
+        // ============ UTILITY FUNCTIONS ============
         function shuffle(array) {
             const shuffled = [...array];
             for (let i = shuffled.length - 1; i > 0; i--) {
@@ -913,18 +952,43 @@
             document.getElementById(screenId).classList.remove('hidden');
         }
 
-        // Storage Management
-        function getAllParticipantsData() {
+        // ============ STORAGE MANAGEMENT (Cloud + Fallback) ============
+        async function getAllParticipantsData() {
+            if (firebaseReady) {
+                try {
+                    const snapshot = await db.ref('participants').once('value');
+                    const data = snapshot.val();
+                    return data ? Object.values(data) : [];
+                } catch (error) {
+                    console.error('Firebase read error, using localStorage:', error);
+                }
+            }
+            // Fallback to localStorage
             return JSON.parse(localStorage.getItem('allParticipantsData') || '[]');
         }
 
-        function saveParticipantsData(data) {
-            localStorage.setItem('allParticipantsData', JSON.stringify(data));
+        async function saveParticipantsData(data) {
+            if (firebaseReady) {
+                try {
+                    // Save to Firebase with participant name as key
+                    for (let participant of data) {
+                        await db.ref('participants/' + participant.id).set(participant);
+                    }
+                    console.log('Data saved to Firebase');
+                } catch (error) {
+                    console.error('Firebase write error, using localStorage:', error);
+                    localStorage.setItem('allParticipantsData', JSON.stringify(data));
+                }
+            } else {
+                // Fallback to localStorage
+                localStorage.setItem('allParticipantsData', JSON.stringify(data));
+            }
         }
 
-        function addTestResult(name, responses) {
-            const allData = getAllParticipantsData();
-            const existingParticipant = allData.find(p => p.name.toLowerCase() === name.toLowerCase());
+        async function addTestResult(name, responses) {
+            const allData = await getAllParticipantsData();
+            let participantId = btoa(name.toLowerCase()).substring(0, 20); // Create consistent ID
+            const existingParticipant = allData.find(p => p.id === participantId);
 
             const testResult = {
                 timestamp: new Date().toISOString(),
@@ -939,6 +1003,7 @@
                 existingParticipant.lastUpdated = new Date().toISOString();
             } else {
                 allData.push({
+                    id: participantId,
                     name: name,
                     tests: [testResult],
                     firstAdded: new Date().toISOString(),
@@ -946,10 +1011,10 @@
                 });
             }
 
-            saveParticipantsData(allData);
+            await saveParticipantsData(allData);
         }
 
-        // Delete Functions
+        // ============ DELETE FUNCTIONS ============
         function showDeleteModal(message, callback) {
             document.getElementById('deleteMessage').textContent = message;
             deleteConfirmContext = callback;
@@ -969,430 +1034,361 @@
             deleteConfirmContext = null;
         }
 
-        function deleteParticipant(index) {
-            const allData = getAllParticipantsData();
+        async function deleteParticipant(index) {
+            const allData = await getAllParticipantsData();
             const participantName = allData[index].name;
+            const participantId = allData[index].id;
             
             showDeleteModal(
                 `Are you sure you want to delete all results for "${participantName}"? This action cannot be undone.`,
-                function() {
+                async function() {
                     allData.splice(index, 1);
-                    saveParticipantsData(allData);
+                    if (firebaseReady) {
+                        await db.ref('participants/' + participantId).remove();
+                    }
+                    await saveParticipantsData(allData);
                     loadParticipantsList();
                 }
             );
         }
 
-        function deleteTest(testIndex) {
-            const allData = getAllParticipantsData();
+        async function deleteTest(testIndex) {
+            const allData = await getAllParticipantsData();
             const participant = allData[currentParticipantIndex];
             const testDate = new Date(participant.tests[testIndex].timestamp).toLocaleString();
             
             showDeleteModal(
                 `Are you sure you want to delete this test result from "${participant.name}" (${testDate})? This action cannot be undone.`,
-                function() {
+                async function() {
                     participant.tests.splice(testIndex, 1);
+                    participant.lastUpdated = new Date().toISOString();
                     
-                    // If all tests deleted, remove participant
                     if (participant.tests.length === 0) {
                         allData.splice(currentParticipantIndex, 1);
-                        saveParticipantsData(allData);
+                        if (firebaseReady) {
+                            await db.ref('participants/' + participant.id).remove();
+                        }
+                        await saveParticipantsData(allData);
                         backToAdminDashboard();
                     } else {
-                        saveParticipantsData(allData);
-                        displayParticipantTestHistory(participant);
+                        await saveParticipantsData(allData);
+                        viewParticipantResults(currentParticipantIndex);
                     }
                 }
             );
         }
 
-        // Role Selection
-        function selectParticipant() {
-            userRole = 'participant';
-            showScreen('nameScreen');
-            document.getElementById('nameInput').focus();
-        }
-
+        // ============ ADMIN FUNCTIONS ============
         function selectAdmin() {
-            userRole = 'admin';
             showScreen('adminPasswordScreen');
-            document.getElementById('adminPassword').focus();
+            document.getElementById('adminPassword').value = '';
+            document.getElementById('passwordErrorMessage').innerHTML = '';
         }
 
         function submitAdminPassword() {
             const password = document.getElementById('adminPassword').value;
-            const errorMessageDiv = document.getElementById('passwordErrorMessage');
-
-            if (password === 'cognitive') {
-                errorMessageDiv.textContent = '';
-                showAdminDashboard();
+            if (password === ADMIN_PASSWORD) {
+                document.getElementById('passwordErrorMessage').innerHTML = '';
+                userRole = 'admin';
+                loadParticipantsList();
             } else {
-                errorMessageDiv.innerHTML = '<div class="error-message" style="margin-top: 20px;">Incorrect password</div>';
-                document.getElementById('adminPassword').value = '';
-                document.getElementById('adminPassword').focus();
+                document.getElementById('passwordErrorMessage').innerHTML = '<div class="error-message">Incorrect password</div>';
             }
         }
 
-        function backToRole() {
-            showScreen('roleScreen');
-            document.getElementById('adminPassword').value = '';
-            document.getElementById('passwordErrorMessage').textContent = '';
-        }
-
-        function backToAdminDashboard() {
-            showScreen('adminDashboardScreen');
-            currentParticipantIndex = -1;
-            currentTestIndex = -1;
-        }
-
-        function showAdminDashboard() {
-            showScreen('adminDashboardScreen');
-            loadParticipantsList();
-        }
-
-        function loadParticipantsList() {
-            const allData = getAllParticipantsData();
-            const participantsList = document.getElementById('participantsList');
+        async function loadParticipantsList() {
+            document.getElementById('passwordErrorMessage').innerHTML = '<div class="loading-message">Loading participants...</div>';
             
-            if (allData.length === 0) {
-                participantsList.innerHTML = '<p style="text-align: center; color: #999;">No participants yet</p>';
-                return;
-            }
+            try {
+                const allData = await getAllParticipantsData();
+                const participantsList = document.getElementById('participantsList');
+                participantsList.innerHTML = '';
 
-            let html = '';
-            allData.forEach((participant, index) => {
-                const testCount = participant.tests ? participant.tests.length : 0;
-                const lastTest = participant.tests && participant.tests.length > 0 
-                    ? new Date(participant.tests[participant.tests.length - 1].timestamp).toLocaleString()
-                    : 'N/A';
+                if (allData.length === 0) {
+                    participantsList.innerHTML = '<p style="text-align: center; color: #999;">No participants yet</p>';
+                } else {
+                    allData.forEach((participant, index) => {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'participant-item';
+                        const testCount = participant.tests ? participant.tests.length : 0;
+                        const firstAdded = new Date(participant.firstAdded).toLocaleString();
+
+                        itemDiv.innerHTML = `
+                            <div class="participant-info" onclick="viewParticipantResults(${index})">
+                                <div class="participant-name">${participant.name}</div>
+                                <div class="participant-timestamp">First: ${firstAdded}</div>
+                                <div class="participant-test-count">${testCount} test${testCount !== 1 ? 's' : ''}</div>
+                            </div>
+                            <div class="participant-actions">
+                                <button class="btn-delete" onclick="deleteParticipant(${index})">Delete All</button>
+                            </div>
+                        `;
+                        participantsList.appendChild(itemDiv);
+                    });
+                }
                 
-                html += `
-                    <div class="participant-item">
-                        <div class="participant-info" onclick="viewParticipantResults(${index})">
-                            <div class="participant-name">${participant.name}</div>
-                            <div class="participant-test-count">Tests completed: ${testCount}</div>
-                            <div class="participant-timestamp">Last test: ${lastTest}</div>
-                        </div>
-                        <div class="participant-actions">
-                            <button class="btn-delete" onclick="deleteParticipant(${index})">Delete All</button>
-                        </div>
-                    </div>
-                `;
-            });
-            participantsList.innerHTML = html;
+                showScreen('adminDashboardScreen');
+                document.getElementById('passwordErrorMessage').innerHTML = '';
+            } catch (error) {
+                console.error('Error loading participants:', error);
+                document.getElementById('passwordErrorMessage').innerHTML = '<div class="error-message">Error loading data</div>';
+            }
         }
 
-        function viewParticipantResults(index) {
-            const allData = getAllParticipantsData();
-            const participant = allData[index];
+        async function viewParticipantResults(index) {
+            const allData = await getAllParticipantsData();
             currentParticipantIndex = index;
-            
-            showScreen('adminResultViewScreen');
-            displayParticipantTestHistory(participant);
-        }
+            const participant = allData[index];
+            const tests = participant.tests || [];
 
-        function displayParticipantTestHistory(participant) {
             const container = document.getElementById('testHistoryContainer');
-            
-            if (!participant.tests || participant.tests.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #999;">No tests completed yet</p>';
+            container.innerHTML = '';
+
+            if (tests.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999;">No tests for this participant</p>';
+                showScreen('adminResultViewScreen');
                 return;
             }
 
-            let tabsHTML = '<div class="test-history-tabs">';
-            participant.tests.forEach((test, index) => {
-                const testNumber = index + 1;
-                const testDate = new Date(test.timestamp).toLocaleDateString();
-                const isActive = index === 0 ? 'active' : '';
-                tabsHTML += `
+            const tabsDiv = document.createElement('div');
+            tabsDiv.className = 'test-history-tabs';
+
+            tests.forEach((test, testIdx) => {
+                const testDate = new Date(test.timestamp).toLocaleString();
+                const tabBtn = document.createElement('button');
+                tabBtn.className = 'test-history-tab' + (testIdx === 0 ? ' active' : '');
+                tabBtn.innerHTML = `
                     <div class="test-tab-container">
-                        <button class="test-history-tab ${isActive}" onclick="selectTest(${index})" data-test-index="${index}">Test ${testNumber} - ${testDate}</button>
-                        <button class="btn-delete-test" onclick="deleteTest(${index})" title="Delete this test">×</button>
+                        <span>Test ${testIdx + 1} - ${testDate}</span>
+                        <button class="btn-delete-test" onclick="event.stopPropagation(); deleteTest(${testIdx})">×</button>
                     </div>
                 `;
-            });
-            tabsHTML += '</div>';
-
-            let resultsHTML = '';
-            participant.tests.forEach((test, index) => {
-                const displayClass = index === 0 ? '' : 'hidden';
-                resultsHTML += `<div id="test-results-${index}" class="results-screen ${displayClass}">`;
-                resultsHTML += displayTestResults(test, participant.name);
-                resultsHTML += '</div>';
+                tabBtn.onclick = () => selectTestTab(testIdx);
+                tabsDiv.appendChild(tabBtn);
             });
 
-            container.innerHTML = tabsHTML + resultsHTML;
-            currentTestIndex = 0;
+            container.appendChild(tabsDiv);
+
+            const resultsDiv = document.createElement('div');
+            resultsDiv.className = 'results-screen';
+            resultsDiv.id = 'testResults';
+            resultsDiv.innerHTML = '<p class="loading-message">Loading test results...</p>';
+            container.appendChild(resultsDiv);
+
+            selectTestTab(0);
+            showScreen('adminResultViewScreen');
         }
 
-        function selectTest(testIndex) {
-            // Hide all test results
-            document.querySelectorAll('[id^="test-results-"]').forEach(el => {
-                el.classList.add('hidden');
-            });
-
-            // Show selected test
-            document.getElementById(`test-results-${testIndex}`).classList.remove('hidden');
-
-            // Update tab active state
+        function selectTestTab(testIdx) {
             document.querySelectorAll('.test-history-tab').forEach((tab, idx) => {
-                if (idx === testIndex) {
+                if (idx === testIdx) {
                     tab.classList.add('active');
                 } else {
                     tab.classList.remove('active');
                 }
             });
-
-            currentTestIndex = testIndex;
+            displayTestResults(testIdx);
         }
 
-        function displayTestResults(test, participantName) {
-            let html = `<h2>Test Results - ${participantName}</h2>`;
-            html += `<p style="text-align: center; color: #999; margin-bottom: 20px;">Completed: ${new Date(test.timestamp).toLocaleString()}</p>`;
+        async function displayTestResults(testIdx) {
+            const allData = await getAllParticipantsData();
+            const participant = allData[currentParticipantIndex];
+            const test = participant.tests[testIdx];
+
+            const resultsDiv = document.getElementById('testResults');
+            const responses = test.responses;
+
+            let oldCorrect = 0, oldIncorrect = 0, newIncorrect = 0, newCorrect = 0;
+            let oldWords = [], oldWrong = [], newWords = [], newWrong = [];
+
+            responses.forEach(response => {
+                if (firstList.includes(response.word)) {
+                    if (response.response === 'was-in') {
+                        oldCorrect++;
+                        oldWords.push(response.word);
+                    } else {
+                        oldIncorrect++;
+                        oldWrong.push(response.word);
+                    }
+                } else {
+                    if (response.response === 'was-in') {
+                        newIncorrect++;
+                        newWrong.push(response.word);
+                    } else {
+                        newCorrect++;
+                        newWords.push(response.word);
+                    }
+                }
+            });
+
+            let html = '<h2>' + participant.name + ' - Test Results</h2>';
+            html += '<div style="text-align: center; margin-bottom: 20px; font-size: 14px; color: #666;">' + new Date(test.timestamp).toLocaleString() + '</div>';
+            html += '<div class="results-columns">';
             
-            html += `
-                <div class="results-columns">
-                    <div class="results-column old-column">
-                        <h3>🟢 Words From First List</h3>
-                        <div id="oldWordsList"></div>
-                    </div>
-                    <div class="results-column new-column">
-                        <h3>🔴 New Words</h3>
-                        <div id="newWordsList"></div>
-                    </div>
-                </div>
-                <div class="score-summary">
-                    <p>Correct Old Words Identified:</p>
-                    <div class="score-number" id="correctScore"></div>
-                </div>
-            `;
-
-            // Create temporary container
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-
-            // Populate results
-            const oldWordResponses = test.responses.filter(r => r.isOldWord);
-            const newWordResponses = test.responses.filter(r => !r.isOldWord);
-            const correctOldWords = oldWordResponses.filter(r => r.isCorrect);
-
-            let oldWordsHTML = '';
-            oldWordResponses.forEach(response => {
-                const statusClass = response.isCorrect ? 'result-correct' : 'result-incorrect';
-                const status = response.isCorrect ? '✓ Correct' : '✗ Incorrect';
-                
-                oldWordsHTML += `
-                    <div class="result-item">
-                        <span class="result-word">${response.word}</span>
-                        <div class="result-details">
-                            Your answer: <strong>${response.response}</strong> - <span class="${statusClass}">${status}</span>
-                        </div>
-                    </div>
-                `;
+            html += '<div class="results-column old-column"><h3>✓ Old Words (Correctly Identified: ' + oldCorrect + ')</h3>';
+            oldWords.forEach(word => {
+                html += '<div class="result-item"><span class="result-word">' + word + '</span><span class="result-correct">Correctly identified as old</span></div>';
             });
-
-            let newWordsHTML = '';
-            newWordResponses.forEach(response => {
-                const statusClass = response.isCorrect ? 'result-correct' : 'result-incorrect';
-                const status = response.isCorrect ? '✓ Correct' : '✗ Incorrect';
-                
-                newWordsHTML += `
-                    <div class="result-item">
-                        <span class="result-word">${response.word}</span>
-                        <div class="result-details">
-                            Your answer: <strong>${response.response}</strong> - <span class="${statusClass}">${status}</span>
-                        </div>
-                    </div>
-                `;
-            });
-
-            // Replace content after appending
-            setTimeout(() => {
-                document.getElementById('oldWordsList').innerHTML = oldWordsHTML || '<p style="text-align: center; color: #999;">No words to display</p>';
-                document.getElementById('newWordsList').innerHTML = newWordsHTML || '<p style="text-align: center; color: #999;">No words to display</p>';
-                document.getElementById('correctScore').textContent = `${correctOldWords.length} out of ${oldWordResponses.length}`;
-            }, 0);
-
-            return html;
-        }
-
-        // Participant flow
-        function submitName() {
-            const nameInput = document.getElementById('nameInput').value.trim();
-            if (nameInput === '') {
-                alert('Please enter your name');
-                return;
+            if (oldWrong.length > 0) {
+                html += '<div style="background: #ffe0e0; padding: 10px; margin-top: 10px; border-radius: 5px; text-align: center;"><strong style="color: #f44336;">Missed Old Words (' + oldIncorrect + ')</strong>';
+                oldWrong.forEach(word => {
+                    html += '<div class="result-item"><span class="result-word">' + word + '</span><span class="result-incorrect">Incorrectly marked as new</span></div>';
+                });
+                html += '</div>';
             }
-            userName = nameInput;
-            showScreen('welcomeScreen');
+            html += '</div>';
+
+            html += '<div class="results-column new-column"><h3>✗ New Words (Correctly Rejected: ' + newCorrect + ')</h3>';
+            newWords.forEach(word => {
+                html += '<div class="result-item"><span class="result-word">' + word + '</span><span class="result-correct">Correctly rejected</span></div>';
+            });
+            if (newIncorrect > 0) {
+                html += '<div style="background: #ffe0e0; padding: 10px; margin-top: 10px; border-radius: 5px; text-align: center;"><strong style="color: #f44336;">False Alarms (' + newIncorrect + ')</strong>';
+                newWrong.forEach(word => {
+                    html += '<div class="result-item"><span class="result-word">' + word + '</span><span class="result-incorrect">Incorrectly marked as old</span></div>';
+                });
+                html += '</div>';
+            }
+            html += '</div></div>';
+
+            let totalScore = oldCorrect + newCorrect;
+            html += '<div class="score-summary"><strong>Overall Score:</strong> <span class="score-number">' + totalScore + '/' + responses.length + '</span></div>';
+
+            resultsDiv.innerHTML = html;
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('nameInput').addEventListener('keypress', function(event) {
-                if (event.key === 'Enter') {
-                    submitName();
-                }
-            });
+        function backToAdminDashboard() {
+            loadParticipantsList();
+        }
 
-            document.getElementById('adminPassword').addEventListener('keypress', function(event) {
-                if (event.key === 'Enter') {
-                    submitAdminPassword();
-                }
-            });
+        // ============ PARTICIPANT FUNCTIONS ============
+        function selectParticipant() {
+            userRole = 'participant';
+            showScreen('nameScreen');
+        }
 
-            document.getElementById('mathAnswer').addEventListener('keypress', function(event) {
-                if (event.key === 'Enter') {
-                    submitMathAnswer();
-                }
-            });
-        });
+        function submitName() {
+            const name = document.getElementById('nameInput').value.trim();
+            if (name.length > 0) {
+                userName = name;
+                shuffledFirstList = shuffle(firstList);
+                shuffledSecondList = shuffle(secondList);
+                currentWordIndex = 0;
+                responses = [];
+                showScreen('welcomeScreen');
+            }
+        }
 
         function startFirstList() {
-            shuffledFirstList = shuffle(firstList);
-            showScreen('firstListScreen');
-            displayFirstListWords();
+            currentWordIndex = 0;
+            displayFirstListWord();
         }
 
-        function displayFirstListWords() {
-            let index = 0;
-            const wordDisplay = document.getElementById('wordDisplay');
-
-            function showNextWord() {
-                if (index < shuffledFirstList.length) {
-                    wordDisplay.textContent = shuffledFirstList[index];
-                    index++;
-                    wordDisplayTimeout = setTimeout(showNextWord, 3000);
-                } else {
-                    showMathProblem();
-                }
+        function displayFirstListWord() {
+            if (currentWordIndex < shuffledFirstList.length) {
+                document.getElementById('wordDisplay').textContent = shuffledFirstList[currentWordIndex];
+                wordDisplayTimeout = setTimeout(() => {
+                    currentWordIndex++;
+                    displayFirstListWord();
+                }, 2000);
+            } else {
+                clearTimeout(wordDisplayTimeout);
+                showScreen('mathProblemScreen');
             }
-
-            showNextWord();
         }
 
         function skipFirstList() {
-            if (wordDisplayTimeout) {
-                clearTimeout(wordDisplayTimeout);
-            }
-            showMathProblem();
-        }
-
-        function showMathProblem() {
+            clearTimeout(wordDisplayTimeout);
             showScreen('mathProblemScreen');
-            document.getElementById('mathAnswer').value = '';
-            document.getElementById('mathErrorMessage').textContent = '';
-            document.getElementById('mathAnswer').focus();
         }
 
         function submitMathAnswer() {
-            const userAnswer = parseInt(document.getElementById('mathAnswer').value);
-            const correctAnswer = 15;
-            const errorMessageDiv = document.getElementById('mathErrorMessage');
-
-            if (userAnswer === correctAnswer) {
-                errorMessageDiv.textContent = '';
-                startBreak();
+            const answer = document.getElementById('mathAnswer').value;
+            const mathError = document.getElementById('mathErrorMessage');
+            
+            if (answer === '15') {
+                mathError.innerHTML = '';
+                showScreen('breakScreen');
+                startCountdown();
             } else {
-                errorMessageDiv.innerHTML = '<div class="error-message">Wrong answer, please try again</div>';
-                document.getElementById('mathAnswer').value = '';
-                document.getElementById('mathAnswer').focus();
+                mathError.innerHTML = '<div class="error-message">Incorrect answer. Please try again.</div>';
             }
         }
 
-        function startBreak() {
-            showScreen('breakScreen');
-            let timeRemaining = 10;
-            const timerDisplay = document.getElementById('timerDisplay');
-
-            const countdown = setInterval(() => {
-                timerDisplay.textContent = timeRemaining;
-                timeRemaining--;
-
-                if (timeRemaining < 0) {
-                    clearInterval(countdown);
-                    showSecondListInstructions();
+        function startCountdown() {
+            let timeLeft = 10;
+            document.getElementById('timerDisplay').textContent = timeLeft;
+            
+            const countdownInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timerDisplay').textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    showScreen('secondListInstructionScreen');
                 }
             }, 1000);
         }
 
-        function showSecondListInstructions() {
-            showScreen('secondListInstructionScreen');
-        }
-
         function startSecondList() {
-            shuffledSecondList = shuffle(secondList);
             currentWordIndex = 0;
-            responses = [];
-            showScreen('secondListScreen');
             displaySecondListWord();
         }
 
         function displaySecondListWord() {
-            const testWordDisplay = document.getElementById('testWordDisplay');
-            const wordProgress = document.getElementById('wordProgress');
-            
             if (currentWordIndex < shuffledSecondList.length) {
-                testWordDisplay.textContent = shuffledSecondList[currentWordIndex];
-                wordProgress.textContent = `Word ${currentWordIndex + 1} of ${shuffledSecondList.length}`;
+                const word = shuffledSecondList[currentWordIndex];
+                document.getElementById('testWordDisplay').textContent = word;
+                document.getElementById('wordProgress').textContent = `Word ${currentWordIndex + 1} of ${shuffledSecondList.length}`;
+                showScreen('secondListScreen');
+            } else {
+                showResults();
             }
         }
 
         function respondWasIn() {
-            const currentWord = shuffledSecondList[currentWordIndex];
-            const isCorrect = firstList.includes(currentWord);
-            
+            const word = shuffledSecondList[currentWordIndex];
             responses.push({
-                word: currentWord,
-                response: 'This word was in the first list',
-                isCorrect: isCorrect,
-                isOldWord: firstList.includes(currentWord)
+                word: word,
+                response: 'was-in'
             });
-
             currentWordIndex++;
-            
-            if (currentWordIndex < shuffledSecondList.length) {
-                displaySecondListWord();
-            } else {
-                saveAndCompleteTest();
-            }
+            displaySecondListWord();
         }
 
         function respondNotIn() {
-            const currentWord = shuffledSecondList[currentWordIndex];
-            const isCorrect = !firstList.includes(currentWord);
-            
+            const word = shuffledSecondList[currentWordIndex];
             responses.push({
-                word: currentWord,
-                response: 'This word was not in the first list',
-                isCorrect: isCorrect,
-                isOldWord: firstList.includes(currentWord)
+                word: word,
+                response: 'was-not-in'
             });
-
             currentWordIndex++;
-            
-            if (currentWordIndex < shuffledSecondList.length) {
-                displaySecondListWord();
-            } else {
-                saveAndCompleteTest();
-            }
+            displaySecondListWord();
         }
 
-        function saveAndCompleteTest() {
-            // Save test result permanently
-            addTestResult(userName, responses);
-            
-            // Show completion screen
+        async function showResults() {
+            document.getElementById('loadingMessage').textContent = 'Saving your results...';
+            await addTestResult(userName, responses);
+            document.getElementById('loadingMessage').textContent = '';
             showScreen('completionScreen');
         }
 
         function resetToRole() {
-            showScreen('roleScreen');
+            currentWordIndex = 0;
+            responses = [];
             userName = '';
             userRole = '';
-            responses = [];
-            currentWordIndex = 0;
-            document.getElementById('nameInput').value = '';
+            showScreen('roleScreen');
         }
+
+        function backToRole() {
+            resetToRole();
+        }
+
+        // Initialize app
+        window.addEventListener('load', () => {
+            showScreen('roleScreen');
+        });
     </script>
 </body>
 </html>

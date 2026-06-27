@@ -893,15 +893,14 @@
 
     <script>
         // ============ FIREBASE CONFIGURATION ============
-        // Replace with your Firebase config from Firebase Console
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            databaseURL: "YOUR_DATABASE_URL",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
+            apiKey: "AIzaSyDdmF5sxguuggbgs5gOA_0GvattYW0RxSc",
+            authDomain: "cognitive-psych-wrmt.firebaseapp.com",
+            databaseURL: "https://cognitive-psych-wrmt-default-rtdb.firebaseio.com",
+            projectId: "cognitive-psych-wrmt",
+            storageBucket: "cognitive-psych-wrmt.firebasestorage.app",
+            messagingSenderId: "113260037728",
+            appId: "1:113260037728:web:1b234eac3b3cce000da505"
         };
 
         // Initialize Firebase
@@ -912,12 +911,13 @@
             firebase.initializeApp(firebaseConfig);
             db = firebase.database();
             firebaseReady = true;
+            console.log('Firebase initialized successfully');
         } catch (error) {
             console.warn('Firebase not configured. Using localStorage fallback:', error);
             firebaseReady = false;
         }
 
-        // Admin password (change this to your desired password)
+        // Admin password
         const ADMIN_PASSWORD = "cognitive";
 
         // Word lists
@@ -970,7 +970,7 @@
         async function saveParticipantsData(data) {
             if (firebaseReady) {
                 try {
-                    // Save to Firebase with participant name as key
+                    // Save to Firebase with participant ID as key
                     for (let participant of data) {
                         await db.ref('participants/' + participant.id).set(participant);
                     }
